@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>456 Growth | Creator Outreach Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  /* Config (METRICS_URL, TOKEN) is at the top of the script at the bottom of this file */
+  :root {
+    --yellow: #FBCE37;
+    --cobalt: #0142AC;
+    --ink: #000000;
+    --paper: #FFFFFF;
+    --stone: #F3F1EC;
+    --gray: #66625A;
+    --line: #DCD8CF;
+    --good: #23824F;
+    --bad: #B8322A;
+    --display: 'Archivo', 'Arial Narrow', Arial, sans-serif;
+    --body: 'Source Sans 3', 'Segoe UI', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  a { color: var(--cobalt); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0 18px; }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand b { font-family: var(--display); font-weight: 900; font-size: 30px; letter-spacing: -0.02em; }
+  .brand span { font-family: var(--display); font-weight: 500; font-size: 18px; color: var(--gray); }
+  .stamp { font-size: 14px; color: var(--gray); text-align: right; }
+  .stamp button { margin-left: 10px; font: 600 14px var(--body); background: var(--ink); color: var(--paper); border: 0; padding: 7px 14px; border-radius: 4px; cursor: pointer; }
+  .stamp button:focus-visible, .tabs button:focus-visible { outline: 3px solid var(--cobalt); outline-offset: 2px; }
+
+  .notice { background: var(--stone); border-left: 6px solid var(--cobalt); padding: 12px 16px; margin: 0 0 18px; font-size: 15px; }
+  .notice.err { border-left-color: var(--bad); }
+
+  /* The funnel band is the hero: one yellow strip, read left to right */
+  .funnel { background: var(--yellow); display: grid; grid-template-columns: repeat(6, 1fr); border-radius: 6px; overflow: hidden; }
+  .step { padding: 22px 18px 20px; position: relative; }
+  .step + .step { border-left: 2px solid rgba(0,0,0,0.12); }
+  .step .n { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 4.2vw, 52px); line-height: 1; letter-spacing: -0.03em; }
+  .step .l { font-family: var(--display); font-weight: 700; font-size: 15px; margin-top: 8px; }
+  .step .c { font-size: 14px; margin-top: 2px; color: #3B3A36; }
+  .subline { display: flex; flex-wrap: wrap; gap: 8px 28px; padding: 12px 2px 0; font-size: 15px; color: var(--gray); }
+  .subline strong { color: var(--ink); font-weight: 600; }
+
+  h2 { font-family: var(--display); font-weight: 900; font-size: 26px; letter-spacing: -0.02em; margin: 44px 0 4px; }
+  h2 + p.lede { margin: 0 0 16px; color: var(--gray); max-width: 70ch; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .panel { border-top: 3px solid var(--ink); padding-top: 12px; }
+  .panel h3 { font-family: var(--display); font-weight: 700; font-size: 17px; margin: 0 0 10px; }
+  .chartbox { position: relative; height: 280px; }
+  .chartbox.tall { height: 320px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { text-align: left; font-family: var(--display); font-weight: 700; font-size: 14px; color: var(--gray); padding: 8px 10px; border-bottom: 2px solid var(--ink); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:hover td { background: var(--stone); }
+  .tag { display: inline-block; font-size: 13px; font-weight: 600; padding: 1px 8px; border-radius: 3px; white-space: nowrap; }
+  .tag.top { background: #DDF0E4; color: var(--good); }
+  .tag.retire { background: #F6DEDB; color: var(--bad); }
+  .tag.more { background: var(--stone); color: var(--gray); }
+  .bar { height: 6px; background: var(--stone); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--cobalt); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+  .tabs button { font: 600 14px var(--body); background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+  .tablewrap { overflow-x: auto; }
+  .empty { color: var(--gray); padding: 18px 0; }
+
+  footer { margin: 56px 0 30px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; color: var(--gray); }
+
+  @media (max-width: 860px) {
+    .funnel { grid-template-columns: repeat(3, 1fr); }
+    .step:nth-child(4) { border-left: 0; }
+    .step:nth-child(n+4) { border-top: 2px solid rgba(0,0,0,0.12); }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .funnel { grid-template-columns: repeat(2, 1fr); }
+    .step:nth-child(n) { border-left: 0; border-top: 2px solid rgba(0,0,0,0.12); }
+    .step:nth-child(-n+2) { border-top: 0; }
+    .step:nth-child(even) { border-left: 2px solid rgba(0,0,0,0.12); }
+    header.top { flex-direction: column; align-items: flex-start; }
+    .stamp { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>456 Growth</b><span>Creator outreach</span></div>
+    <div class="stamp"><span id="stamp">Loading metrics</span><button id="refresh" type="button">Refresh</button></div>
+  </header>
+
+  <div id="notice"></div>
+
+  <section aria-label="Outreach funnel">
+    <div class="funnel" id="funnel"></div>
+    <div class="subline" id="subline"></div>
+  </section>
+
+  <h2>Daily activity</h2>
+  <p class="lede">Creators added, emails drafted, emails sent, and replies received over the last 30 days.</p>
+  <div class="panel"><div class="chartbox tall"><canvas id="dailyChart"></canvas></div></div>
+
+  <h2>Where replies come from</h2>
+  <p class="lede">Reply rate on sent emails, split by how the creator was found and by creator tier.</p>
+  <div class="grid2">
+    <div class="panel"><h3>By source</h3><div class="chartbox"><canvas id="sourceChart"></canvas></div></div>
+    <div class="panel"><h3>By tier</h3><div class="chartbox"><canvas id="tierChart"></canvas></div></div>
+  </div>
+
+  <div class="grid2" style="margin-top:28px">
+    <div class="panel"><h3>What creators are saying</h3><div class="chartbox"><canvas id="replyChart"></canvas></div></div>
+    <div class="panel"><h3>By owner</h3><div class="tablewrap" id="ownerTable"></div></div>
+  </div>
+
+  <h2>What's working in the emails</h2>
+  <p class="lede">Every line of copy, ranked by reply rate. Lines need about 20 sends before the numbers mean much.</p>
+  <div class="tabs" role="tablist" id="tplTabs"></div>
+  <div class="tablewrap" id="tplTable"></div>
+
+  <h2>Sourcing runs</h2>
+  <p class="lede">Each pull from Cruva: creators found, added with an email, added without one, and filtered out.</p>
+  <div class="panel"><div class="chartbox"><canvas id="runChart"></canvas></div></div>
+
+  <footer>Numbers come from the Creator Sourcing Queue sheet. No creator names or emails are shown here.</footer>
+</div>
+
+<script>
+/* ===================== CONFIG ===================== */
+// Paste the Apps Script web app URL (Deploy > Web app) here.
+const METRICS_URL = 'https://script.google.com/macros/s/AKfycbwMO8l1OFTfai639SeIQys66kbqMlzadNEHR04CJyM0Ra_T1kq9K5Fqe0HQOLvV4bqPCQ/exec';
+// Optional: if you set DASHBOARD_TOKEN in Script Properties, put the same value here.
+const TOKEN = '';
+/* ================================================== */
+
+const C = { yellow: '#FBCE37', cobalt: '#0142AC', ink: '#000000', gray: '#9A958A', good: '#23824F', bad: '#B8322A', sky: '#8FB0E6' };
+const fmt = n => Number(n || 0).toLocaleString();
+const pct = (a, b) => b ? (100 * a / b).toFixed(1) + '%' : '0%';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const charts = {};
+Chart.defaults.font.family = "'Source Sans 3', 'Segoe UI', Arial, sans-serif";
+Chart.defaults.font.size = 13;
+Chart.defaults.color = '#3B3A36';
+
+function sampleData() {
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
+    const s = i < 12 ? Math.round(18 + Math.random() * 22) : 0;
+    days.push({ date: d, pulled: i % 2 ? 0 : Math.round(60 + Math.random() * 140), drafted: s + 3, sent: s, replied: Math.round(s * (0.06 + Math.random() * 0.08)) });
+  }
+  return {
+    sample: true, generatedAt: new Date().toISOString(),
+    totals: { pulled: 1150, withEmail: 880, noEmail: 270, filtered: 640, approved: 410, drafted: 390, sent: 352, replied: 41, positive: 23, negotiating: 6, signed: 3, followupsSent: 140 },
+    owners: { Jacob: { drafted: 220, sent: 201, replied: 25, positive: 15, signed: 2 }, Hanny: { drafted: 170, sent: 151, replied: 16, positive: 8, signed: 1 } },
+    sources: { 'Lookalike': { sent: 160, replied: 23, positive: 14 }, 'Brand mining': { sent: 120, replied: 12, positive: 6 }, 'Category search': { sent: 72, replied: 6, positive: 3 } },
+    tiers: { L3: { sent: 180, replied: 24, positive: 13 }, L4: { sent: 110, replied: 11, positive: 7 }, L5: { sent: 50, replied: 5, positive: 3 }, 'L6+': { sent: 12, replied: 1, positive: 0 } },
+    replyTypes: { 'Interested': 15, 'Wants rates/info': 8, 'Not now': 7, 'Not interested': 6, 'Stop': 1, 'Other': 4 },
+    daily: days,
+    runs: [
+      { date: '2026-10-12', group: 'Group 3', pulled: 273, ready: 8, noEmail: 2, filtered: 17 },
+      { date: '2026-10-13', group: 'Group 1', pulled: 221, ready: 102, noEmail: 25, filtered: 94 },
+      { date: '2026-10-13', group: 'Group 2', pulled: 911, ready: 143, noEmail: 57, filtered: 127 },
+      { date: '2026-10-14', group: 'Group 3', pulled: 583, ready: 155, noEmail: 45, filtered: 204 },
+    ],
+    templates: [
+      { block: 'subject', line: '{brand}', sent: 120, replies: 17, positive: 10 },
+      { block: 'subject', line: '456 Growth x {handle}', sent: 118, replies: 13, positive: 7 },
+      { block: 'subject', line: "I'd love to share more!", sent: 114, replies: 11, positive: 6 },
+      { block: 'opener', line: 'Your recent run with {brand} is exactly why I\'m reaching out.', sent: 31, replies: 6, positive: 4 },
+      { block: 'opener', line: 'You\'ve been killing it with {brand} this past month, so I wanted to reach out.', sent: 29, replies: 2, positive: 1 },
+      { block: 'value', line: 'The deals pay per post and you still keep all of your commissions.', sent: 40, replies: 6, positive: 3 },
+      { block: 'question', line: 'Does that sound like something you\'d be into?', sent: 33, replies: 5, positive: 3 },
+      { block: 'followup', line: '{greet} Just wanted to bump this email in case it got buried...', sent: 60, replies: 7, positive: 4 },
+    ],
+    doNotContact: 7,
+  };
+}
+
+async function load() {
+  const notice = document.getElementById('notice');
+  notice.innerHTML = '';
+  let data;
+  if (!METRICS_URL) {
+    data = sampleData();
+    notice.innerHTML = '<div class="notice">Showing sample data. Add your Apps Script web app URL to METRICS_URL in this file to see live numbers.</div>';
+  } else {
+    try {
+      const url = METRICS_URL + (TOKEN ? (METRICS_URL.indexOf('?') > -1 ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN) : '');
+      const res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
+      data = await res.json();
+      if (data.error) throw new Error(data.error === 'unauthorized' ? 'The token does not match DASHBOARD_TOKEN in Script Properties.' : data.error);
+    } catch (e) {
+      notice.innerHTML = '<div class="notice err">Could not load live metrics. ' + esc(e.message) + ' Check that the web app is deployed with access set to Anyone and that METRICS_URL is the full /exec URL.</div>';
+      return;
+    }
+  }
+  render(data);
+}
+
+function render(d) {
+  const t = d.totals;
+  document.getElementById('stamp').textContent = (d.sample ? 'Sample data, ' : 'Updated ') + new Date(d.generatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+  const steps = [
+    { n: t.pulled, l: 'Creators sourced', c: fmt(t.withEmail) + ' with email' },
+    { n: t.approved, l: 'Approved', c: pct(t.approved, t.pulled) + ' of sourced' },
+    { n: t.sent, l: 'Emails sent', c: pct(t.sent, t.approved) + ' of approved' },
+    { n: t.replied, l: 'Replies', c: pct(t.replied, t.sent) + ' reply rate' },
+    { n: t.positive, l: 'Interested', c: pct(t.positive, t.sent) + ' of sent' },
+    { n: t.signed, l: 'Signed', c: fmt(t.negotiating) + ' negotiating' },
+  ];
+  document.getElementById('funnel').innerHTML = steps.map(s =>
+    '<div class="step"><div class="n">' + fmt(s.n) + '</div><div class="l">' + s.l + '</div><div class="c">' + s.c + '</div></div>').join('');
+  document.getElementById('subline').innerHTML =
+    '<span><strong>' + fmt(t.noEmail) + '</strong> waiting on an email</span>' +
+    '<span><strong>' + fmt(t.filtered) + '</strong> filtered out</span>' +
+    '<span><strong>' + fmt(t.followupsSent) + '</strong> follow-ups sent</span>' +
+    '<span><strong>' + fmt(d.doNotContact) + '</strong> on do not contact</span>';
+
+  draw('dailyChart', {
+    type: 'line',
+    data: {
+      labels: d.daily.map(x => x.date.slice(5)),
+      datasets: [
+        { label: 'Creators added', data: d.daily.map(x => x.pulled), type: 'bar', backgroundColor: C.yellow, yAxisID: 'y2', order: 3 },
+        { label: 'Drafted', data: d.daily.map(x => x.drafted), borderColor: C.sky, backgroundColor: C.sky, tension: 0.3, pointRadius: 0 },
+        { label: 'Sent', data: d.daily.map(x => x.sent), borderColor: C.cobalt, backgroundColor: C.cobalt, borderWidth: 3, tension: 0.3, pointRadius: 0 },
+        { label: 'Replies', data: d.daily.map(x => x.replied), borderColor: C.good, backgroundColor: C.good, borderWidth: 3, tension: 0.3, pointRadius: 2 },
+      ],
+    },
+    options: base({
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, title: { display: true, text: 'Emails' } },
+        y2: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'Creators added' } },
+      },
+    }),
+  });
+
+  rateBars('sourceChart', d.sources);
+  rateBars('tierChart', d.tiers, ['L3', 'L4', 'L5', 'L6+']);
+
+  const typeOrder = ['Interested', 'Wants rates/info', 'Not now', 'Other', 'Not interested', 'Stop', 'Unclassified'];
+  const typeColor = { 'Interested': C.good, 'Wants rates/info': C.cobalt, 'Not now': C.yellow, 'Other': C.gray, 'Not interested': C.bad, 'Stop': '#5E1A15', 'Unclassified': '#CFCAC0' };
+  const types = typeOrder.filter(k => d.replyTypes[k]);
+  draw('replyChart', {
+    type: 'bar',
+    data: { labels: types, datasets: [{ data: types.map(k => d.replyTypes[k]), backgroundColor: types.map(k => typeColor[k]) }] },
+    options: base({ indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } } }),
+  });
+
+  const owners = Object.keys(d.owners).sort((a, b) => d.owners[b].sent - d.owners[a].sent);
+  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th class="num">Signed</th></tr></thead><tbody>' +
+    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
+    '</tbody></table>' : '<div class="empty">No emails drafted yet.</div>';
+
+  templateTabs(d.templates || []);
+
+  draw('runChart', {
+    type: 'bar',
+    data: {
+      labels: d.runs.map(r => r.date.slice(5) + ' ' + r.group.replace(/^Part \d+ \| /, '').split(':')[0]),
+      datasets: [
+        { label: 'With email', data: d.runs.map(r => r.ready), backgroundColor: C.cobalt, stack: 'a' },
+        { label: 'No email', data: d.runs.map(r => r.noEmail), backgroundColor: C.sky, stack: 'a' },
+        { label: 'Filtered out', data: d.runs.map(r => r.filtered), backgroundColor: '#CFCAC0', stack: 'a' },
+      ],
+    },
+    options: base({ scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true } } }),
+  });
+}
+
+function rateBars(id, map, order) {
+  const keys = (order || Object.keys(map).sort((a, b) => map[b].sent - map[a].sent)).filter(k => map[k]);
+  draw(id, {
+    type: 'bar',
+    data: {
+      labels: keys.map(k => k + ' (' + fmt(map[k].sent) + ' sent)'),
+      datasets: [
+        { label: 'Reply rate', data: keys.map(k => map[k].sent ? 100 * map[k].replied / map[k].sent : 0), backgroundColor: C.cobalt },
+        { label: 'Interested rate', data: keys.map(k => map[k].sent ? 100 * map[k].positive / map[k].sent : 0), backgroundColor: C.yellow },
+      ],
+    },
+    options: base({ scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: v => v + '%' } } },
+      plugins: { tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%' } } } }),
+  });
+}
+
+const BLOCKS = [
+  ['subject', 'Subjects'], ['opener', 'Openers'], ['intro', 'Intros'], ['value', 'Value lines'], ['question', 'Questions'],
+  ['close', 'Closing lines'], ['closeQ', 'One-line asks'], ['signoff', 'Sign-offs'], ['shape', 'Ending shapes'], ['followup', 'Follow-ups'],
+];
+let tplData = [], tplBlock = 'subject';
+function templateTabs(templates) {
+  tplData = templates;
+  const present = BLOCKS.filter(b => templates.some(x => x.block === b[0]));
+  if (!present.some(b => b[0] === tplBlock) && present.length) tplBlock = present[0][0];
+  document.getElementById('tplTabs').innerHTML = present.map(b =>
+    '<button type="button" role="tab" aria-selected="' + (b[0] === tplBlock) + '" data-b="' + b[0] + '">' + b[1] + '</button>').join('');
+  document.querySelectorAll('#tplTabs button').forEach(btn => btn.addEventListener('click', () => { tplBlock = btn.dataset.b; templateTabs(tplData); }));
+  const rows = templates.filter(x => x.block === tplBlock);
+  if (!rows.length) { document.getElementById('tplTable').innerHTML = '<div class="empty">No sent emails are tracked yet. Lines show up here once drafts created from now on are sent.</div>'; return; }
+  const sent = rows.reduce((a, x) => a + x.sent, 0), rep = rows.reduce((a, x) => a + x.replies, 0);
+  const avg = sent ? rep / sent : 0;
+  const maxRate = Math.max.apply(null, rows.map(x => x.sent ? x.replies / x.sent : 0)) || 1;
+  rows.sort((a, b) => (b.sent ? b.replies / b.sent : 0) - (a.sent ? a.replies / a.sent : 0) || b.sent - a.sent);
+  document.getElementById('tplTable').innerHTML = '<table><thead><tr><th>Line</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th>Read</th></tr></thead><tbody>' +
+    rows.map(x => {
+      const rate = x.sent ? x.replies / x.sent : 0;
+      let tag = '<span class="tag more">Needs more sends</span>';
+      if (x.sent >= 20 && avg > 0 && rate > avg * 1.5) tag = '<span class="tag top">Top performer</span>';
+      else if (x.sent >= 20 && avg > 0 && rate < avg * 0.5) tag = '<span class="tag retire">Consider retiring</span>';
+      else if (x.sent >= 20) tag = '';
+      return '<tr><td>' + esc(x.line).replace(/\n/g, '<br>') + '<div class="bar"><i style="width:' + (100 * rate / maxRate).toFixed(0) + '%"></i></div></td>' +
+        '<td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replies) + '</td><td class="num">' + pct(x.replies, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td>' + tag + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+
+function base(extra) {
+  const o = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12 } } } };
+  return deepMerge(o, extra || {});
+}
+function deepMerge(a, b) {
+  Object.keys(b).forEach(k => {
+    if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && typeof b[k] !== 'function') a[k] = deepMerge(a[k] || {}, b[k]);
+    else a[k] = b[k];
+  });
+  return a;
+}
+function draw(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+document.getElementById('refresh').addEventListener('click', load);
+load();
+setInterval(load, 15 * 60 * 1000); // auto-refresh every 15 minutes
+</script>
+</body>
+</html>
