@@ -40,9 +40,8 @@
   .notice.err { border-left-color: var(--bad); }
 
   /* The funnel band is the hero: one yellow strip, read left to right */
-  .funnel { background: var(--yellow); display: grid; grid-template-columns: repeat(6, 1fr); border-radius: 6px; overflow: hidden; }
-  .step { padding: 22px 18px 20px; position: relative; }
-  .step + .step { border-left: 2px solid rgba(0,0,0,0.12); }
+  .funnel { background: rgba(0,0,0,0.12); display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; }
+  .step { padding: 22px 16px 20px; position: relative; background: var(--yellow); }
   .step .n { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 4.2vw, 52px); line-height: 1; letter-spacing: -0.03em; }
   .step .l { font-family: var(--display); font-weight: 700; font-size: 15px; margin-top: 8px; }
   .step .c { font-size: 14px; margin-top: 2px; color: #3B3A36; }
@@ -79,16 +78,11 @@
   footer { margin: 56px 0 30px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; color: var(--gray); }
 
   @media (max-width: 860px) {
-    .funnel { grid-template-columns: repeat(3, 1fr); }
-    .step:nth-child(4) { border-left: 0; }
-    .step:nth-child(n+4) { border-top: 2px solid rgba(0,0,0,0.12); }
+    .funnel { grid-template-columns: repeat(4, 1fr); }
     .grid2 { grid-template-columns: 1fr; }
   }
   @media (max-width: 520px) {
     .funnel { grid-template-columns: repeat(2, 1fr); }
-    .step:nth-child(n) { border-left: 0; border-top: 2px solid rgba(0,0,0,0.12); }
-    .step:nth-child(-n+2) { border-top: 0; }
-    .step:nth-child(even) { border-left: 2px solid rgba(0,0,0,0.12); }
     header.top { flex-direction: column; align-items: flex-start; }
     .stamp { text-align: left; }
   }
@@ -219,7 +213,8 @@ function render(d) {
     { n: t.sent, l: 'Emails sent', c: pct(t.sent, t.approved) + ' of approved' },
     { n: t.replied, l: 'Replies', c: pct(t.replied, t.sent) + ' reply rate' },
     { n: t.positive, l: 'Interested', c: pct(t.positive, t.sent) + ' of sent' },
-    { n: t.signed, l: 'Signed', c: fmt(t.negotiating) + ' negotiating' },
+    { n: t.negotiating, l: 'Negotiating', c: fmt(t.negotiatingNow || 0) + ' active now' },
+    { n: t.signed, l: 'Signed', c: pct(t.signed, t.negotiating) + ' of negotiating' },
   ];
   document.getElementById('funnel').innerHTML = steps.map(s =>
     '<div class="step"><div class="n">' + fmt(s.n) + '</div><div class="l">' + s.l + '</div><div class="c">' + s.c + '</div></div>').join('');
@@ -238,6 +233,8 @@ function render(d) {
         { label: 'Drafted', data: d.daily.map(x => x.drafted), borderColor: C.sky, backgroundColor: C.sky, tension: 0.3, pointRadius: 0 },
         { label: 'Sent', data: d.daily.map(x => x.sent), borderColor: C.cobalt, backgroundColor: C.cobalt, borderWidth: 3, tension: 0.3, pointRadius: 0 },
         { label: 'Replies', data: d.daily.map(x => x.replied), borderColor: C.good, backgroundColor: C.good, borderWidth: 3, tension: 0.3, pointRadius: 2 },
+        { label: 'Negotiating', data: d.daily.map(x => x.negotiating || 0), borderColor: '#C98A00', backgroundColor: '#C98A00', borderWidth: 2, tension: 0.3, pointRadius: 2 },
+        { label: 'Signed', data: d.daily.map(x => x.signed || 0), borderColor: C.ink, backgroundColor: C.ink, borderWidth: 2, tension: 0.3, pointRadius: 3 },
       ],
     },
     options: base({
@@ -262,8 +259,8 @@ function render(d) {
   });
 
   const owners = Object.keys(d.owners).sort((a, b) => d.owners[b].sent - d.owners[a].sent);
-  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th class="num">Signed</th></tr></thead><tbody>' +
-    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
+  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th class="num">Negotiating</th><th class="num">Signed</th></tr></thead><tbody>' +
+    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
     '</tbody></table>' : '<div class="empty">No emails drafted yet.</div>';
 
   templateTabs(d.templates || []);
@@ -299,8 +296,8 @@ function rateBars(id, map, order) {
 }
 
 const BLOCKS = [
-  ['subject', 'Subjects'], ['opener', 'Openers'], ['intro', 'Intros'], ['value', 'Value lines'], ['services', 'Services lines'], ['discovery', 'Discovery questions'], ['question', 'Questions'],
-  ['close', 'Closing lines'], ['closeQ', 'One-line asks'], ['signoff', 'Sign-offs'], ['shape', 'Ending shapes'], ['followup', 'Follow-ups'],
+  ['subject', 'Subjects'], ['opener', 'Openers'], ['intro', 'Intros'], ['introDirect', 'Direct intros'], ['value', 'Value lines'], ['services', 'Services lines'], ['discovery', 'Discovery questions'], ['question', 'Questions'],
+  ['close', 'Closing lines'], ['closeQ', 'One-line asks'], ['signoff', 'Sign-offs'], ['shape', 'Ending shapes'], ['followup', 'Full follow-ups'], ['fuOpen', 'Follow-up openers'], ['fuMiddle', 'Follow-up middles'], ['fuAsk', 'Follow-up asks'],
 ];
 let tplData = [], tplBlock = 'subject';
 function templateTabs(templates) {
