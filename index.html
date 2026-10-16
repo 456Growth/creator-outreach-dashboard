@@ -298,13 +298,16 @@ function rateBars(id, map, order) {
 }
 
 const BLOCKS = [
-  ['subject', 'Subjects'], ['opener', 'Openers'], ['intro', 'Intros'], ['introDirect', 'Direct intros'], ['value', 'Value lines'], ['services', 'Services lines'], ['discovery', 'Discovery questions'], ['question', 'Questions'],
+  ['subject', 'Subjects'], ['greet', 'Greetings'], ['opener', 'Openers'], ['intro', 'Intros'], ['introDirect', 'Direct intros'], ['value', 'Value lines'], ['services', 'Services lines'], ['discovery', 'Discovery questions'], ['question', 'Questions'],
   ['close', 'Closing lines'], ['closeQ', 'One-line asks'], ['signoff', 'Sign-offs'], ['shape', 'Ending shapes'], ['followup', 'Full follow-ups'], ['fuOpen', 'Follow-up openers'], ['fuMiddle', 'Follow-up middles'], ['fuAsk', 'Follow-up asks'],
+  ['fuGreet', 'Follow-up greetings'], ['fuServices', 'Follow-up services lines'], ['fuDiscovery', 'Follow-up discovery'], ['fuSignoff', 'Follow-up sign-offs'], ['mode', 'Other'],
 ];
 let tplData = [], tplBlock = 'subject';
 function templateTabs(templates) {
   tplData = templates;
-  const present = BLOCKS.filter(b => templates.some(x => x.block === b[0]));
+  // Show every block in the data, including any new ones added later
+  const extra = Array.from(new Set(templates.map(x => x.block))).filter(b => !BLOCKS.some(k => k[0] === b)).map(b => [b, b]);
+  const present = BLOCKS.concat(extra).filter(b => templates.some(x => x.block === b[0]));
   if (!present.some(b => b[0] === tplBlock) && present.length) tplBlock = present[0][0];
   document.getElementById('tplTabs').innerHTML = present.map(b =>
     '<button type="button" role="tab" aria-selected="' + (b[0] === tplBlock) + '" data-b="' + b[0] + '">' + b[1] + '</button>').join('');
