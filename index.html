@@ -40,7 +40,7 @@
   .notice.err { border-left-color: var(--bad); }
 
   /* The funnel band is the hero: one yellow strip, read left to right */
-  .funnel { background: rgba(0,0,0,0.12); display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; }
+  .funnel { background: rgba(0,0,0,0.12); display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; }
   .step { padding: 22px 16px 20px; position: relative; background: var(--yellow); }
   .step .n { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 4.2vw, 52px); line-height: 1; letter-spacing: -0.03em; }
   .step .l { font-family: var(--display); font-weight: 700; font-size: 15px; margin-top: 8px; }
@@ -213,6 +213,7 @@ function render(d) {
     { n: t.sent, l: 'Emails sent', c: pct(t.sent, t.approved) + ' of approved' },
     { n: t.replied, l: 'Replies', c: pct(t.replied, t.sent) + ' reply rate' },
     { n: t.positive, l: 'Interested', c: pct(t.positive, t.sent) + ' of sent' },
+    { n: t.callBooked || 0, l: 'Call booked', c: pct(t.callBooked || 0, t.replied) + ' of replies' },
     { n: t.negotiating, l: 'Negotiating', c: fmt(t.negotiatingNow || 0) + ' active now' },
     { n: t.signed, l: 'Signed', c: pct(t.signed, t.negotiating) + ' of negotiating' },
   ];
@@ -233,6 +234,7 @@ function render(d) {
         { label: 'Drafted', data: d.daily.map(x => x.drafted), borderColor: C.sky, backgroundColor: C.sky, tension: 0.3, pointRadius: 0 },
         { label: 'Sent', data: d.daily.map(x => x.sent), borderColor: C.cobalt, backgroundColor: C.cobalt, borderWidth: 3, tension: 0.3, pointRadius: 0 },
         { label: 'Replies', data: d.daily.map(x => x.replied), borderColor: C.good, backgroundColor: C.good, borderWidth: 3, tension: 0.3, pointRadius: 2 },
+        { label: 'Calls booked', data: d.daily.map(x => x.callBooked || 0), borderColor: '#0F8A7E', backgroundColor: '#0F8A7E', borderWidth: 2, tension: 0.3, pointRadius: 2 },
         { label: 'Negotiating', data: d.daily.map(x => x.negotiating || 0), borderColor: '#C98A00', backgroundColor: '#C98A00', borderWidth: 2, tension: 0.3, pointRadius: 2 },
         { label: 'Signed', data: d.daily.map(x => x.signed || 0), borderColor: C.ink, backgroundColor: C.ink, borderWidth: 2, tension: 0.3, pointRadius: 3 },
       ],
@@ -259,8 +261,8 @@ function render(d) {
   });
 
   const owners = Object.keys(d.owners).sort((a, b) => d.owners[b].sent - d.owners[a].sent);
-  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th class="num">Negotiating</th><th class="num">Signed</th></tr></thead><tbody>' +
-    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
+  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th class="num">Calls</th><th class="num">Negotiating</th><th class="num">Signed</th></tr></thead><tbody>' +
+    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td class="num">' + fmt(x.callBooked || 0) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
     '</tbody></table>' : '<div class="empty">No emails drafted yet.</div>';
 
   templateTabs(d.templates || []);
