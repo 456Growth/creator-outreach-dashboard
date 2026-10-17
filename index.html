@@ -74,6 +74,11 @@
   .tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
   .tablewrap { overflow-x: auto; }
   .empty { color: var(--gray); padding: 18px 0; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 6px 0 22px; }
+  .kpi { border-top: 3px solid var(--cobalt); padding-top: 10px; }
+  .kpi .n { font-family: var(--display); font-weight: 900; font-size: 32px; letter-spacing: -0.02em; line-height: 1.1; }
+  .kpi .l { font-size: 14px; color: var(--gray); margin-top: 4px; }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
 
   footer { margin: 56px 0 30px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; color: var(--gray); }
 
@@ -117,6 +122,26 @@
     <div class="panel"><h3>What creators are saying</h3><div class="chartbox"><canvas id="replyChart"></canvas></div></div>
     <div class="panel"><h3>By owner</h3><div class="tablewrap" id="ownerTable"></div></div>
   </div>
+
+  <h2>Reply timing</h2>
+  <p class="lede">How long creators take to respond, which email they answered, and when replies come in. Patterns get more reliable as volume grows.</p>
+  <div class="kpis" id="timingKpis"></div>
+  <div class="grid2">
+    <div class="panel"><h3>Time to first reply</h3><div class="chartbox"><canvas id="rtBuckets"></canvas></div></div>
+    <div class="panel"><h3>Which email got the reply</h3><div class="chartbox"><canvas id="rtTouch"></canvas></div></div>
+  </div>
+  <div class="grid2" style="margin-top:28px">
+    <div class="panel"><h3>Reply rate by send day</h3><div class="chartbox"><canvas id="rtSendDow"></canvas></div></div>
+    <div class="panel"><h3>Reply rate by send time</h3><div class="chartbox"><canvas id="rtSendPart"></canvas></div></div>
+  </div>
+  <div class="grid2" style="margin-top:28px">
+    <div class="panel"><h3>When replies arrive</h3><div class="chartbox"><canvas id="rtArrive"></canvas></div></div>
+    <div class="panel"><h3>Median reply time by group</h3><div class="tablewrap" id="rtGroups"></div></div>
+  </div>
+
+  <h2>Follow-up sequence</h2>
+  <p class="lede">Up to 4 follow-ups, each 3 days after the last email with no reply. #4 closes the loop; 3 days later the creator moves to Non-Responsive.</p>
+  <div class="panel"><div class="tablewrap" id="fuTable"></div></div>
 
   <h2>What's working in the emails</h2>
   <p class="lede">Every line of copy, ranked by reply rate. Lines need about 20 sends before the numbers mean much.</p>
@@ -223,7 +248,9 @@ function render(d) {
     '<span><strong>' + fmt(t.noEmail) + '</strong> waiting on an email</span>' +
     '<span><strong>' + fmt(t.filtered) + '</strong> filtered out</span>' +
     '<span><strong>' + fmt(t.followupsSent) + '</strong> follow-ups sent</span>' +
-    '<span><strong>' + fmt(d.doNotContact) + '</strong> on do not contact</span>';
+    '<span><strong>' + fmt(d.doNotContact) + '</strong> on do not contact</span>' +
+    '<span><strong>' + fmt(t.nonResponsive || 0) + '</strong> non-responsive</span>' +
+    '<span><strong>' + fmt(t.lateReplies || 0) + '</strong> late replies</span>';
 
   draw('dailyChart', {
     type: 'line',
@@ -265,6 +292,7 @@ function render(d) {
     owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td class="num">' + fmt(x.callBooked || 0) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
     '</tbody></table>' : '<div class="empty">No emails drafted yet.</div>';
 
+  renderTiming(d);
   templateTabs(d.templates || []);
 
   draw('runChart', {
@@ -279,6 +307,44 @@ function render(d) {
     },
     options: base({ scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true } } }),
   });
+}
+
+const hrsLabel = h => h == null ? 'n/a' : (h < 48 ? h.toFixed(h < 10 ? 1 : 0) + ' hrs' : (h / 24).toFixed(1) + ' days');
+function renderTiming(d) {
+  const tm = d.timing || { buckets: {}, repliedTo: {}, sendDow: {}, sendPart: {}, replyDow: {}, replyPart: {}, byTier: {}, bySource: {}, byOwner: {} };
+  const rt = tm.repliedTo || {};
+  const afterFu = Object.keys(rt).filter(k => /^Follow-up/.test(k)).reduce((a, k) => a + rt[k], 0);
+  const totalRt = Object.keys(rt).reduce((a, k) => a + rt[k], 0);
+  document.getElementById('timingKpis').innerHTML = [
+    [hrsLabel(tm.medianHours), 'Median time to first reply'],
+    [hrsLabel(tm.avgHours), 'Average time to first reply'],
+    [totalRt ? Math.round(100 * afterFu / totalRt) + '%' : '0%', 'Replies that came after a follow-up'],
+    [fmt(rt.Late || 0), 'Late replies (after the sequence)'],
+  ].map(k => '<div class="kpi"><div class="n">' + k[0] + '</div><div class="l">' + k[1] + '</div></div>').join('');
+  const bk = ['Same day', '1-2 days', '3-5 days', '6-10 days', '11+ days'];
+  draw('rtBuckets', { type: 'bar', data: { labels: bk, datasets: [{ data: bk.map(k => (tm.buckets || {})[k] || 0), backgroundColor: C.cobalt }] },
+    options: base({ plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } }) });
+  const touches = ['Original', 'Follow-up #1', 'Follow-up #2', 'Follow-up #3', 'Follow-up #4', 'Late'];
+  draw('rtTouch', { type: 'bar', data: { labels: touches, datasets: [{ data: touches.map(k => rt[k] || 0), backgroundColor: [C.cobalt, '#F2A65A', '#E8893C', '#D96C22', '#B9520F', C.gray] }] },
+    options: base({ plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } }) });
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], parts = ['Morning', 'Midday', 'Afternoon', 'Evening', 'Night'];
+  const rateChart = (id, map, keys) => draw(id, { type: 'bar', data: { labels: keys.map(k => k + ' (' + fmt((map[k] || {}).sent || 0) + ')'),
+    datasets: [{ label: 'Reply rate', data: keys.map(k => (map[k] && map[k].sent) ? 100 * map[k].replied / map[k].sent : 0), backgroundColor: C.yellow }] },
+    options: base({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(1) + '% reply rate' } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: v => v + '%' } } } }) });
+  rateChart('rtSendDow', tm.sendDow || {}, days);
+  rateChart('rtSendPart', tm.sendPart || {}, parts);
+  draw('rtArrive', { type: 'bar', data: { labels: parts, datasets: [{ data: parts.map(k => (tm.replyPart || {})[k] || 0), backgroundColor: C.good }] },
+    options: base({ plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } }) });
+  const rows = [];
+  [['Tier', tm.byTier], ['Source', tm.bySource], ['Owner', tm.byOwner]].forEach(g => Object.keys(g[1] || {}).sort().forEach(k => rows.push([g[0], k, g[1][k]])));
+  document.getElementById('rtGroups').innerHTML = rows.length ? '<table><thead><tr><th>Group</th><th></th><th class="num">Replies</th><th class="num">Median reply time</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + r[0] + '</td><td>' + esc(r[1]) + '</td><td class="num">' + fmt(r[2].count) + '</td><td class="num">' + hrsLabel(r[2].medianHours) + '</td></tr>').join('') +
+    '</tbody></table>' : '<div class="empty">No replies yet.</div>';
+  const fu = d.followupsByNum || {};
+  document.getElementById('fuTable').innerHTML = '<table><thead><tr><th>Email</th><th class="num">Sent</th><th class="num">Replies to it</th><th class="num">Reply rate</th></tr></thead><tbody>' +
+    [1, 2, 3, 4].map(k => { const x = fu[k] || { sent: 0, replied: 0 }; return '<tr><td>Follow-up #' + k + (k === 4 ? ' (closing the loop)' : '') + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td></tr>'; }).join('') +
+    '</tbody></table>';
 }
 
 function rateBars(id, map, order) {
