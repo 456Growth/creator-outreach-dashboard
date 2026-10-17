@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>456 Growth | Creator Outreach Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -292,8 +294,8 @@ function render(d) {
   });
 
   const owners = Object.keys(d.owners).sort((a, b) => d.owners[b].sent - d.owners[a].sent);
-  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th class="num">Calls</th><th class="num">Negotiating</th><th class="num">Signed</th></tr></thead><tbody>' +
-    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td class="num">' + fmt(x.callBooked || 0) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
+  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Calls</th><th class="num">Negotiating</th><th class="num">Signed</th></tr></thead><tbody>' +
+    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.callBooked || 0) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
     '</tbody></table>' : '<div class="empty">No emails drafted yet.</div>';
 
   renderPipeline(d);
@@ -376,7 +378,6 @@ function rateBars(id, map, order) {
       labels: keys.map(k => k + ' (' + fmt(map[k].sent) + ' sent)'),
       datasets: [
         { label: 'Reply rate', data: keys.map(k => map[k].sent ? 100 * map[k].replied / map[k].sent : 0), backgroundColor: C.cobalt },
-        { label: 'Interested rate', data: keys.map(k => map[k].sent ? 100 * map[k].positive / map[k].sent : 0), backgroundColor: C.yellow },
       ],
     },
     options: base({ scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: v => v + '%' } } },
@@ -405,7 +406,7 @@ function templateTabs(templates) {
   const avg = sent ? rep / sent : 0;
   const maxRate = Math.max.apply(null, rows.map(x => x.sent ? x.replies / x.sent : 0)) || 1;
   rows.sort((a, b) => (b.sent ? b.replies / b.sent : 0) - (a.sent ? a.replies / a.sent : 0) || b.sent - a.sent);
-  document.getElementById('tplTable').innerHTML = '<table><thead><tr><th>Line</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Interested</th><th>Read</th></tr></thead><tbody>' +
+  document.getElementById('tplTable').innerHTML = '<table><thead><tr><th>Line</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th>Read</th></tr></thead><tbody>' +
     rows.map(x => {
       const rate = x.sent ? x.replies / x.sent : 0;
       let tag = '<span class="tag more">Needs more sends</span>';
@@ -413,7 +414,7 @@ function templateTabs(templates) {
       else if (x.sent >= 20 && avg > 0 && rate < avg * 0.5) tag = '<span class="tag retire">Consider retiring</span>';
       else if (x.sent >= 20) tag = '';
       return '<tr><td>' + esc(x.line).replace(/\n/g, '<br>') + '<div class="bar"><i style="width:' + (100 * rate / maxRate).toFixed(0) + '%"></i></div></td>' +
-        '<td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replies) + '</td><td class="num">' + pct(x.replies, x.sent) + '</td><td class="num">' + fmt(x.positive) + '</td><td>' + tag + '</td></tr>';
+        '<td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replies) + '</td><td class="num">' + pct(x.replies, x.sent) + '</td><td>' + tag + '</td></tr>';
     }).join('') + '</tbody></table>';
 }
 
