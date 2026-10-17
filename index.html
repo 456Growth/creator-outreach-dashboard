@@ -103,6 +103,7 @@
   </header>
 
   <div id="notice"></div>
+  <div class="tabs" id="ownerTabs" role="tablist" aria-label="Owner"></div>
 
   <section aria-label="Outreach funnel">
     <div class="funnel" id="funnel"></div>
@@ -232,7 +233,20 @@ async function load() {
       return;
     }
   }
-  render(data);
+  RAW = data;
+  showOwner(OWNER);
+}
+
+// Owner tabs: All team, or one owner's numbers (email copy and sourcing runs stay team-wide)
+let RAW = null, OWNER = 'All team';
+function showOwner(name) {
+  OWNER = name;
+  const names = ['All team'].concat(RAW.ownerNames || []);
+  const tabs = document.getElementById('ownerTabs');
+  tabs.innerHTML = names.length > 1 ? names.map(n => '<button type="button" role="tab" aria-selected="' + (n === OWNER) + '" data-o="' + esc(n) + '">' + esc(n) + '</button>').join('') : '';
+  tabs.querySelectorAll('button').forEach(b => { b.onclick = () => showOwner(b.getAttribute('data-o')); });
+  const view = (OWNER === 'All team' || !RAW.byOwner || !RAW.byOwner[OWNER]) ? RAW : Object.assign({}, RAW, RAW.byOwner[OWNER]);
+  render(view);
 }
 
 function render(d) {
