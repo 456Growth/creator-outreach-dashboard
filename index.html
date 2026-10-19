@@ -159,6 +159,8 @@
   <h2>What's working in the emails</h2>
   <p class="lede">Every line of copy, ranked by reply rate. Lines need about 20 sends before the numbers mean much.</p>
   <div class="tabs" role="tablist" id="tplTabs"></div>
+  <div id="tplSummary" class="lede" style="margin:6px 0 10px"></div>
+  <label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;margin-bottom:10px"><input type="checkbox" id="showRetired"> Show retired lines</label>
   <div class="tablewrap" id="tplTable"></div>
 
   <h2>Sourcing runs</h2>
@@ -424,7 +426,7 @@ const BLOCKS = [
   ['close', 'Closing lines'], ['closeQ', 'One-line asks'], ['signoff', 'Sign-offs'], ['shape', 'Ending shapes'], ['followup', 'Full follow-ups'], ['fuOpen', 'Follow-up openers'], ['fuMiddle', 'Follow-up middles'], ['fuAsk', 'Follow-up asks'],
   ['fuGreet', 'Follow-up greetings'], ['fuServices', 'Follow-up services lines'], ['fuDiscovery', 'Follow-up discovery'], ['fuSignoff', 'Follow-up sign-offs'], ['mode', 'Other'],
 ];
-let tplData = [], tplBlock = 'subject';
+let tplData = [], tplBlock = 'subject', showRetired = false;
 function templateTabs(templates) {
   tplData = templates;
   // Show every block in the data, including any new ones added later
@@ -434,7 +436,13 @@ function templateTabs(templates) {
   document.getElementById('tplTabs').innerHTML = present.map(b =>
     '<button type="button" role="tab" aria-selected="' + (b[0] === tplBlock) + '" data-b="' + b[0] + '">' + b[1] + '</button>').join('');
   document.querySelectorAll('#tplTabs button').forEach(btn => btn.addEventListener('click', () => { tplBlock = btn.dataset.b; templateTabs(tplData); }));
-  const rows = templates.filter(x => x.block === tplBlock);
+  const all = templates.filter(x => x.block === tplBlock);
+  const nAct = all.filter(x => x.status !== 'retired').length, nNew = all.filter(x => x.status !== 'retired' && !x.sent).length, nRet = all.length - nAct;
+  document.getElementById('tplSummary').textContent = nAct + ' lines in rotation (' + nNew + ' not sent yet)' + (nRet ? ', ' + nRet + ' retired' : '');
+  const sr = document.getElementById('showRetired');
+  sr.checked = showRetired;
+  sr.onchange = () => { showRetired = sr.checked; templateTabs(tplData); };
+  const rows = all.filter(x => showRetired || x.status !== 'retired');
   if (!rows.length) { document.getElementById('tplTable').innerHTML = '<div class="empty">No sent emails are tracked yet. Lines show up here once drafts created from now on are sent.</div>'; return; }
   const sent = rows.reduce((a, x) => a + x.sent, 0), rep = rows.reduce((a, x) => a + x.replies, 0);
   const avg = sent ? rep / sent : 0;
@@ -447,6 +455,8 @@ function templateTabs(templates) {
       if (x.sent >= 20 && avg > 0 && rate > avg * 1.5) tag = '<span class="tag top">Top performer</span>';
       else if (x.sent >= 20 && avg > 0 && rate < avg * 0.5) tag = '<span class="tag retire">Consider retiring</span>';
       else if (x.sent >= 20) tag = '';
+      if (x.status === 'retired') tag = '<span class="tag retire">Retired</span>';
+      else if (!x.sent) tag = '<span class="tag more">Not sent yet</span>';
       return '<tr><td>' + esc(x.line).replace(/\n/g, '<br>') + '<div class="bar"><i style="width:' + (100 * rate / maxRate).toFixed(0) + '%"></i></div></td>' +
         '<td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replies) + '</td><td class="num">' + pct(x.replies, x.sent) + '</td><td>' + tag + '</td></tr>';
     }).join('') + '</tbody></table>';
