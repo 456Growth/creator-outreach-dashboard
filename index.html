@@ -115,6 +115,11 @@
   <div class="kpis" id="pipeKpis"></div>
   <div class="panel"><div class="chartbox" style="height:360px"><canvas id="pipeChart"></canvas></div></div>
 
+  <h2>Creators who passed</h2>
+  <p class="lede">Creators an owner marked Passed: they were in a conversation with us and chose not to move forward. They stay off Do Not Contact, so they can be approached again later.</p>
+  <div class="kpis" id="passKpis"></div>
+  <div class="panel"><h3>How far they got before passing</h3><div class="chartbox"><canvas id="passChart"></canvas></div></div>
+
   <h2>Daily activity</h2>
   <p class="lede">Creators added, emails drafted, emails sent, and replies received over the last 30 days.</p>
   <div class="panel"><div class="chartbox tall"><canvas id="dailyChart"></canvas></div></div>
@@ -308,11 +313,12 @@ function render(d) {
   });
 
   const owners = Object.keys(d.owners).sort((a, b) => d.owners[b].sent - d.owners[a].sent);
-  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Calls</th><th class="num">Negotiating</th><th class="num">Signed</th></tr></thead><tbody>' +
-    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.callBooked || 0) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td></tr>'; }).join('') +
+  document.getElementById('ownerTable').innerHTML = owners.length ? '<table><thead><tr><th>Owner</th><th class="num">Drafted</th><th class="num">Sent</th><th class="num">Replies</th><th class="num">Reply rate</th><th class="num">Calls</th><th class="num">Negotiating</th><th class="num">Signed</th><th class="num">Passed</th></tr></thead><tbody>' +
+    owners.map(o => { const x = d.owners[o]; return '<tr><td>' + esc(o) + '</td><td class="num">' + fmt(x.drafted) + '</td><td class="num">' + fmt(x.sent) + '</td><td class="num">' + fmt(x.replied) + '</td><td class="num">' + pct(x.replied, x.sent) + '</td><td class="num">' + fmt(x.callBooked || 0) + '</td><td class="num">' + fmt(x.negotiating || 0) + '</td><td class="num">' + fmt(x.signed) + '</td><td class="num">' + fmt(x.passed || 0) + '</td></tr>'; }).join('') +
     '</tbody></table>' : '<div class="empty">No emails drafted yet.</div>';
 
   renderPipeline(d);
+  renderPassed(d);
   renderTiming(d);
   templateTabs(d.templates || []);
 
@@ -330,10 +336,24 @@ function render(d) {
   });
 }
 
+function renderPassed(d) {
+  const t = d.totals || {}, ps = d.passedStage || {};
+  const afterCall = (ps['After a call'] || 0) + (ps['After negotiating'] || 0);
+  document.getElementById('passKpis').innerHTML = [
+    [fmt(t.passed || 0), 'Creators who passed'],
+    [pct(t.passed || 0, t.replied), 'Of creators who replied'],
+    [fmt(afterCall), 'Passed after a call or negotiating'],
+    [fmt(t.signed || 0) + ' : ' + fmt(t.passed || 0), 'Signed vs passed'],
+  ].map(k => '<div class="kpi"><div class="n">' + k[0] + '</div><div class="l">' + k[1] + '</div></div>').join('');
+  const keys = ['After replying', 'After a call', 'After negotiating'];
+  draw('passChart', { type: 'bar', data: { labels: keys, datasets: [{ data: keys.map(k => ps[k] || 0), backgroundColor: ['#9AA1AC', '#7D8591', '#5F6773'] }] },
+    options: base({ plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } }) });
+}
+
 function renderPipeline(d) {
   const sn = d.statusNow || {}, t = d.totals || {};
   const order = ['New', 'Drafted', 'Contacted', 'Follow-up #1 drafted', 'Follow-up #1 sent', 'Follow-up #2 drafted', 'Follow-up #2 sent',
-    'Follow-up #3 drafted', 'Follow-up #3 sent', 'Follow-up #4 drafted', 'Follow-up #4 sent', 'Non-responsive', 'Replied', 'Call booked', 'Negotiating', 'Signed'];
+    'Follow-up #3 drafted', 'Follow-up #3 sent', 'Follow-up #4 drafted', 'Follow-up #4 sent', 'Non-responsive', 'Replied', 'Call booked', 'Negotiating', 'Signed', 'Passed'];
   const inSeq = order.filter(k => /^Follow-up #/.test(k)).reduce((a, k) => a + (sn[k] || 0), 0);
   document.getElementById('pipeKpis').innerHTML = [
     [fmt(inSeq), 'In the follow-up sequence'], [fmt(t.nonResponsive || 0), 'Non-responsive (retargeting)'],
@@ -341,7 +361,7 @@ function renderPipeline(d) {
   ].map(k => '<div class="kpi"><div class="n">' + k[0] + '</div><div class="l">' + k[1] + '</div></div>').join('');
   const keys = order.filter(k => k !== 'New');
   const col = k => /^Follow-up #1/.test(k) ? '#F2A65A' : /^Follow-up #2/.test(k) ? '#E8893C' : /^Follow-up #3/.test(k) ? '#D96C22' : /^Follow-up #4/.test(k) ? '#B9520F'
-    : k === 'Non-responsive' ? C.gray : k === 'Signed' ? C.good : (k === 'Replied' || k === 'Call booked' || k === 'Negotiating') ? C.yellow : C.cobalt;
+    : k === 'Non-responsive' ? C.gray : k === 'Passed' ? '#6B7380' : k === 'Signed' ? C.good : (k === 'Replied' || k === 'Call booked' || k === 'Negotiating') ? C.yellow : C.cobalt;
   draw('pipeChart', { type: 'bar', data: { labels: keys, datasets: [{ data: keys.map(k => sn[k] || 0), backgroundColor: keys.map(col) }] },
     options: base({ indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } } }) });
 }
